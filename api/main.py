@@ -17,12 +17,18 @@ SCHEMA = """
 Tables:
 - persons(token_id TEXT, first_seen TEXT, last_seen TEXT, camera_id TEXT, abandoned INTEGER)
 - wait_metrics(id INTEGER, token_id TEXT, entry_time TEXT, exit_time TEXT, wait_seconds REAL, abandoned INTEGER, date TEXT)
+
 Notes:
 - abandoned=1 means left without being served
-- wait_seconds is dwell time in seconds
-- The 'date' column only exists in wait_metrics, NOT in persons
-- To filter by today use: WHERE date = date('now') on wait_metrics
-- Only count visits where wait_seconds > 2 to exclude false detections
+- wait_seconds is dwell time in SECONDS (not minutes)
+- The date column only exists in wait_metrics
+- entry_time and exit_time are ISO8601 UTC strings like 2026-06-27T08:30:10+00:00
+- To filter by today: WHERE date = date('now')
+- To filter by hour: WHERE strftime('%H', entry_time) = '20' (for 8pm UTC)
+- To filter a time range: WHERE entry_time BETWEEN '2026-06-27T08:00:00' AND '2026-06-27T09:00:00'
+- Always filter with wait_seconds > 2 to exclude false detections
+- To count visitors in last N minutes: WHERE entry_time >= datetime('now', '-N minutes')
+- Convert seconds to minutes by dividing by 60 when answering
 """
 
 @app.get("/")
@@ -113,7 +119,7 @@ def ask(body: Question):
     plain_msg = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": "You are a friendly business analyst explaining venue analytics to a restaurant owner. Give a clear plain English answer in 1-2 sentences. IMPORTANT: wait_seconds values are in SECONDS not minutes. Always state times in seconds or convert correctly (divide by 60 for minutes). Never mention token IDs, SQL, or technical terms."},
+            {"role": "system", "content": "You are a friendly business analyst explaining venue analytics to a restaurant owner. Give a clear 1-2 sentence answer. Rules: (1) wait_seconds is in SECONDS, convert to minutes by dividing by 60. (2) Mention the time period clearly. (3) Never mention token IDs or SQL. (4) If no data found, say so clearly."},
             {"role": "user", "content": f"Question: {body.question}\nData: {result}"}
         ],
         max_tokens=150, temperature=0.3
@@ -152,3 +158,24 @@ async def upload_url(body: dict):
 @app.get("/job/{job_id}")
 def job_status(job_id: str):
     return jobs.get(job_id, {"status": "not_found"})
+
+
+@app.get("/metrics/hourly")
+def hourly():
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("""
+        SELECT
+            CAST(strftime('%H', entry_time) AS INTEGER) AS hour,
+            COUNT(*) AS visitors,
+            ROUND(AVG(wait_seconds), 1) AS avg_dwell,
+            SUM(CASE WHEN abandoned=1 THEN 1 ELSE 0 END) AS abandoned
+        FROM wait_metrics
+        WHERE wait_seconds > 2
+        GROUP BY hour
+        ORDER BY hour
+    """)
+    rows = cur.fetchall()
+    db.close()
+    return [{"hour": r[0], "visitors": r[1],
+             "avg_dwell_seconds": r[2], "abandoned": r[3]} for r in rows]
