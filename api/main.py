@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import sqlite3
+import uuid
 from groq import Groq
 import os
 
@@ -112,10 +113,42 @@ def ask(body: Question):
     plain_msg = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": "You are a friendly business analyst explaining venue analytics to a restaurant owner. Give a clear plain English answer in 1-2 sentences. Never mention token IDs, SQL, or technical terms."},
+            {"role": "system", "content": "You are a friendly business analyst explaining venue analytics to a restaurant owner. Give a clear plain English answer in 1-2 sentences. IMPORTANT: wait_seconds values are in SECONDS not minutes. Always state times in seconds or convert correctly (divide by 60 for minutes). Never mention token IDs, SQL, or technical terms."},
             {"role": "user", "content": f"Question: {body.question}\nData: {result}"}
         ],
         max_tokens=150, temperature=0.3
     )
     return {"question": body.question, "sql": sql, "result": result,
             "plain_answer": plain_msg.choices[0].message.content.strip()}
+
+from fastapi import UploadFile, File, BackgroundTasks
+import shutil, os
+from api.process import start_job, jobs
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/upload")
+async def upload_video(file: UploadFile = File(...)):
+    ext = file.filename.split(".")[-1]
+    path = f"{UPLOAD_DIR}/{uuid.uuid4()}.{ext}"
+    with open(path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    job_id = start_job(path)
+    return {"job_id": job_id}
+
+@app.post("/upload/url")
+async def upload_url(body: dict):
+    import subprocess, uuid as _uuid
+    path = f"{UPLOAD_DIR}/{_uuid.uuid4()}.mp4"
+    result = subprocess.run(
+        ["yt-dlp", body["url"], "-o", path, "--no-playlist"],
+        capture_output=True, text=True)
+    if result.returncode != 0:
+        return {"error": "Failed to download video"}
+    job_id = start_job(path)
+    return {"job_id": job_id}
+
+@app.get("/job/{job_id}")
+def job_status(job_id: str):
+    return jobs.get(job_id, {"status": "not_found"})
