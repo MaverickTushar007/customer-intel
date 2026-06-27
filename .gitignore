@@ -1,0 +1,5 @@
+.env
+db/
+token_crops/
+*.mp4
+venv/
