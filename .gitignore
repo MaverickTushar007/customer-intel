@@ -1,5 +1,7 @@
-.env
-db/
-token_crops/
-*.mp4
 venv/
+db/
+*.mp4
+token_crops/
+__pycache__/
+*.pyc
+.env
