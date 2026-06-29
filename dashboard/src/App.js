@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-const API = "http://localhost:8765";
+const API = process.env.REACT_APP_API_URL || "http://localhost:8765";
 
 const PRESET_QUESTIONS = [
   "How many visitors came today?",
