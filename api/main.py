@@ -26,7 +26,7 @@ Notes:
 - To filter by today: WHERE date = date('now')
 - To filter by hour: WHERE strftime('%H', entry_time) = '20' (for 8pm UTC)
 - To filter a time range: WHERE entry_time BETWEEN '2026-06-27T08:00:00' AND '2026-06-27T09:00:00'
-- Always filter with wait_seconds > 2 to exclude false detections
+- Always filter with wait_seconds > 3 to exclude false detections
 - To count visitors in last N minutes: WHERE entry_time >= datetime('now', '-N minutes')
 - Convert seconds to minutes by dividing by 60 when answering
 """
@@ -43,7 +43,7 @@ def summary():
         SELECT COUNT(*), ROUND(AVG(wait_seconds),1), ROUND(MAX(wait_seconds),1),
                SUM(CASE WHEN abandoned=1 THEN 1 ELSE 0 END)
         FROM wait_metrics
-        WHERE wait_seconds > 2
+        WHERE wait_seconds > 3
     """)
     r = cur.fetchone()
     db.close()
@@ -65,7 +65,7 @@ def all_persons():
         SELECT p.token_id, p.first_seen, p.camera_id, w.wait_seconds, w.abandoned
         FROM persons p
         LEFT JOIN wait_metrics w ON p.token_id = w.token_id
-        WHERE w.wait_seconds > 2
+        WHERE w.wait_seconds > 3
         ORDER BY p.first_seen
     """)
     rows = cur.fetchall()
@@ -80,7 +80,7 @@ def longest_waits(limit: int = 5):
     cur.execute("""
         SELECT token_id, wait_seconds, entry_time, abandoned
         FROM wait_metrics
-        WHERE wait_seconds > 2
+        WHERE wait_seconds > 3
         ORDER BY wait_seconds DESC LIMIT ?
     """, (limit,))
     rows = cur.fetchall()
@@ -97,7 +97,7 @@ def ask(body: Question):
     sql_msg = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": f"You write SQLite SELECT queries for this schema:\n{SCHEMA}\nReturn ONLY raw SQL, no markdown, no explanation. Always filter with wait_seconds > 2."},
+            {"role": "system", "content": f"You write SQLite SELECT queries for this schema:\n{SCHEMA}\nReturn ONLY raw SQL, no markdown, no explanation. Always filter with wait_seconds > 3."},
             {"role": "user", "content": body.question}
         ],
         max_tokens=200, temperature=0
@@ -171,7 +171,7 @@ def hourly():
             ROUND(AVG(wait_seconds), 1) AS avg_dwell,
             SUM(CASE WHEN abandoned=1 THEN 1 ELSE 0 END) AS abandoned
         FROM wait_metrics
-        WHERE wait_seconds > 2
+        WHERE wait_seconds > 3
         GROUP BY hour
         ORDER BY hour
     """)
@@ -191,7 +191,7 @@ def business_iq():
             AVG(wait_seconds) as avg_dwell,
             MAX(wait_seconds) as max_dwell
         FROM wait_metrics
-        WHERE wait_seconds > 2
+        WHERE wait_seconds > 3
     """)
     r = cur.fetchone()
     db.close()

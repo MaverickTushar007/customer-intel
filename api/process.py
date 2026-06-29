@@ -47,6 +47,22 @@ def process_video(job_id, video_path):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         embedder.to(device)
 
+        jobs[job_id]["stage"] = "Analysing video characteristics..."
+        jobs[job_id]["progress"] = 5
+
+        # Planner sets optimal parameters per video
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        from agent.planner import analyze_video_sample
+        params = analyze_video_sample(video_path)
+        jobs[job_id]["params"] = params
+        print(f"  [PLAN] {params['reasoning']}")
+
+        REID_THRESHOLD = params["reid_threshold"]
+        CONF_THRESHOLD_DYNAMIC = params["conf_threshold"]
+        FPS_DYNAMIC = params["fps_target"]
+        CLAHE_CLIP_DYNAMIC = params["clahe_clip"]
+
         jobs[job_id]["stage"] = "Detecting people..."
         jobs[job_id]["progress"] = 10
 
@@ -55,7 +71,6 @@ def process_video(job_id, video_path):
         tracks = {}
         last_seen_frame = {}
         last_seen_ts = {}
-        REID_THRESHOLD = 0.65
 
         def video_ts_to_iso(ts):
             return (VIDEO_START + timedelta(seconds=ts)).isoformat()
@@ -87,7 +102,7 @@ def process_video(job_id, video_path):
                 jobs[job_id]["progress"] = progress
                 jobs[job_id]["stage"] = stage
 
-                results = detector(frame, conf=0.25, classes=[0], verbose=False)
+                results = detector(frame, conf=CONF_THRESHOLD_DYNAMIC, classes=[0], verbose=False)
                 for box in results[0].boxes:
                     emb = get_embedding(frame, box.xyxy[0].tolist(), device)
                     if emb is None:

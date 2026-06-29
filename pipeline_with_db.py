@@ -8,15 +8,15 @@ import uuid
 import sqlite3
 from datetime import datetime, timezone, timedelta
 
-detector = YOLO('yolo11n.pt')
+detector = YOLO('yolo11m.pt')
 embedder = torchreid.models.build_model(name='osnet_x1_0', num_classes=1000, pretrained=True)
 embedder.eval()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 embedder.to(device)
 
-CONF_THRESHOLD = 0.25
-REID_THRESHOLD = 0.65
-MIN_BOX_HEIGHT = 40
+CONF_THRESHOLD = 0.15
+REID_THRESHOLD = 0.70
+MIN_BOX_HEIGHT = 20
 CAMERA_ID = 'cam_01'
 
 # Anchor: treat video t=0 as current real time
@@ -101,7 +101,7 @@ def log_exit(token, track, exit_ts):
     print(f"  [DB] {token} exited — dwell: {wait:.1f}s (video time)")
 
 print("Pipeline running — press Q to quit")
-for fid, ts, frame in stream_frames('test_video2.mp4', fps_target=12):
+for fid, ts, frame in stream_frames('test_restaurant.mp4.webm', fps_target=12):
     results = detector(frame, conf=CONF_THRESHOLD, classes=[0], verbose=False)
 
     for box in results[0].boxes:
@@ -126,7 +126,7 @@ for fid, ts, frame in stream_frames('test_video2.mp4', fps_target=12):
 
     # Exit anyone not seen for 30+ frames
     for token, last_fid in list(last_seen_frame.items()):
-        if token in tracks and (fid - last_fid) > 30:
+        if token in tracks and (fid - last_fid) > 80:  # 10s at 8fps for seated venues
             log_exit(token, tracks[token], last_seen_ts[token])
             del tracks[token]
             del last_seen_frame[token]
