@@ -83,10 +83,13 @@ function UploadScreen({ onProcessingStart }) {
     const form = new FormData();
     form.append("file", file);
     try {
-      const r = await axios.post(`${API}/upload`, form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      onProcessingStart(r.data.job_id);
+const r = await axios.post(`${API}/upload`, form, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
+
+console.log("Backend response:", r.data);
+
+onProcessingStart(r.data.job_id);
     } catch (e) {
       setError("Upload failed. Make sure the API is running.");
       setUploading(false);
@@ -239,7 +242,14 @@ function UploadScreen({ onProcessingStart }) {
 
 
 function App() {
-  return <UploadScreen />;
+  const handleProcessingStart = (jobId) => {
+    console.log("Job ID:", jobId);
+    alert(`Upload successful!\nJob ID: ${jobId}`);
+  };
+
+  return (
+    <UploadScreen onProcessingStart={handleProcessingStart} />
+  );
 }
 
 export default App;
