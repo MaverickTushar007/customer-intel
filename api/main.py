@@ -6,6 +6,33 @@ import uuid
 from groq import Groq
 import os
 
+# Ensure DB exists on startup (Railway ephemeral filesystem)
+import os
+os.makedirs("db", exist_ok=True)
+os.makedirs("uploads", exist_ok=True)
+
+import sqlite3 as _sqlite3
+_conn = _sqlite3.connect("db/customer_intel.db")
+_conn.executescript("""
+CREATE TABLE IF NOT EXISTS persons (
+    token_id TEXT PRIMARY KEY,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT,
+    camera_id TEXT,
+    abandoned INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS wait_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_id TEXT,
+    entry_time TEXT,
+    exit_time TEXT,
+    wait_seconds REAL,
+    abandoned INTEGER DEFAULT 0,
+    date TEXT
+);
+""")
+_conn.commit()
+_conn.close()
 app = FastAPI(title="Customer Intelligence API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
