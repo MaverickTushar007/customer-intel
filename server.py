@@ -52,3 +52,26 @@ def stats(camera: str = Query(default="all")):
     }}
     db.close()
     return data
+
+import threading
+from api.process import start_job
+
+DEMO_VIDEOS = {
+    "retail_store": "vidssave.com HD CCTV Camera video 3MP 4MP iProx CCTV HDCCTVCameras.net retail store 720p.mp4",
+    "cafe": "vidssave.com Surya Security Cctv Hik 2MP _ 1080p  cafe TP Surabaya 20170623 1080P.mp4",
+    "midtown": "vidssave.com Midtown corner store surveillance video 11-25-18 720P.mp4",
+    "retail_usa": "vidssave.com E43A inside the Retail store in USA #2 1080P.mp4",
+}
+
+@app.post("/demo/{video_key}")
+def run_demo(video_key: str):
+    if video_key not in DEMO_VIDEOS:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Demo not found")
+    path = DEMO_VIDEOS[video_key]
+    import os
+    if not os.path.exists(path):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Video file not found: {path}")
+    job_id = start_job(path)
+    return {"job_id": job_id}
