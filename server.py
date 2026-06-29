@@ -75,3 +75,37 @@ def run_demo(video_key: str):
         raise HTTPException(status_code=404, detail=f"Video file not found: {path}")
     job_id = start_job(path)
     return {"job_id": job_id}
+
+import os
+import uuid
+from fastapi import UploadFile, File, HTTPException
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/upload")
+async def upload_video(file: UploadFile = File(...)):
+    ext = os.path.splitext(file.filename)[1] or ".mp4"
+    saved_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4().hex}{ext}")
+    with open(saved_path, "wb") as f:
+        f.write(await file.read())
+    job_id = start_job(saved_path)
+    return {"job_id": job_id}
+
+
+class UrlUpload(BaseModel):
+    url: str
+
+@app.post("/upload/url")
+def upload_url(body: UrlUpload):
+    import yt_dlp
+    base = os.path.join(UPLOAD_DIR, uuid.uuid4().hex)
+    ydl_opts = {"outtmpl": base + ".%(ext)s", "format": "mp4/best", "quiet": True}
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(body.url, download=True)
+            saved_path = ydl.prepare_filename(info)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to download video: {e}")
+    job_id = start_job(saved_path)
+    return {"job_id": job_id}

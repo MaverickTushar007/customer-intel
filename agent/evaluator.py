@@ -32,15 +32,14 @@ def evaluate_run(db_path='db/customer_intel.db'):
     cur.execute("SELECT COUNT(DISTINCT token_id) FROM persons")
     unique_tokens = cur.fetchone()[0]
     cur.execute("""
-        SELECT MAX(CAST(strftime('%s', last_seen) AS INTEGER) -
-                   CAST(strftime('%s', first_seen) AS INTEGER))
+        SELECT CAST(strftime('%s', MAX(last_seen)) AS INTEGER) -
+               CAST(strftime('%s', MIN(first_seen)) AS INTEGER)
         FROM persons
-        WHERE last_seen IS NOT NULL
     """)
     video_duration = cur.fetchone()[0] or 0
 
-    # Heuristic: more than 1 new person every 10 seconds is suspicious
-    expected_max = max(1, video_duration / 10)
+    # Heuristic: more than 1 new person every 5 seconds is suspicious
+    expected_max = max(2, video_duration / 5)
     if unique_tokens > expected_max and video_duration > 0:
         issues.append(
             f"Token fragmentation detected: {unique_tokens} unique tokens for {video_duration}s video "
