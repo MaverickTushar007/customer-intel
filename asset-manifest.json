@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/customer-intel/static/css/main.e6c13ad2.css",
+    "main.js": "/customer-intel/static/js/main.afb325d7.js",
+    "static/js/453.3dd3cfc9.chunk.js": "/customer-intel/static/js/453.3dd3cfc9.chunk.js",
+    "index.html": "/customer-intel/index.html",
+    "main.e6c13ad2.css.map": "/customer-intel/static/css/main.e6c13ad2.css.map",
+    "main.afb325d7.js.map": "/customer-intel/static/js/main.afb325d7.js.map",
+    "453.3dd3cfc9.chunk.js.map": "/customer-intel/static/js/453.3dd3cfc9.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e6c13ad2.css",
+    "static/js/main.afb325d7.js"
+  ]
+}
